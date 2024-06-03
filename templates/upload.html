@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Image</title>
+    <style>
+        /* Стили для удобства отображения */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px; /* Уменьшаем максимальную ширину контейнера */
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input[type="file"] {
+            display: block;
+        }
+        .form-group button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            text-align: center; /* Центрируем изображение */
+        }
+        .result img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+            cursor: pointer; /* Делаем курсор указателем при наведении на изображение */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Upload Image</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="image">Choose image:</label>
+                <input type="file" id="image" name="image" required>
+            </div>
+            <div class="form-group">
+                <button type="submit">Upload</button>
+            </div>
+        </form>
+
+        <div class="result">
+            <h3>Processed Image:</h3>
+            <img id="resultImage" src="#" alt="Processed image will appear here" style="display:none;">
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            // Получаем текущий CSRF-токен из куки
+            const csrfToken = getCookie('csrftoken');
+
+            const formData = new FormData();
+            const fileField = document.querySelector('input[type="file"]');
+            formData.append('image', fileField.files[0]);
+
+            const response = await fetch('/api/ml-model/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken  // Добавляем CSRF-токен в заголовок запроса
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const processedImageUrl = data.processed_image;
+                const resultImage = document.getElementById('resultImage');
+                resultImage.src = processedImageUrl;
+                resultImage.style.display = 'block';
+
+                // Добавляем обработчик клика на изображение для открытия в полном размере
+                resultImage.addEventListener('click', function() {
+                    window.open(processedImageUrl, '_blank');
+                });
+            } else {
+                alert('Error uploading image');
+            }
+        });
+
+        // Функция для получения значения куки по имени
+        function getCookie(name) {
+            const cookieValue = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
+            return cookieValue ? cookieValue.pop() : '';
+        }
+    </script>
+</body>
+</html>
