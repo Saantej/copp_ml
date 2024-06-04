@@ -27,7 +27,8 @@
             display: block;
             margin-bottom: 5px;
         }
-        .form-group input[type="file"] {
+        .form-group input[type="file"],
+        .form-group input[type="number"] {
             display: block;
         }
         .form-group button {
@@ -50,27 +51,31 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             padding: 5px;
-            cursor: pointer; /* Делаем курсор указателем при наведении на изображение */
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Upload Image</h2>
+        <h2>Загрузить изображение</h2>
         <form id="uploadForm" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="form-group">
-                <label for="image">Choose image:</label>
+                <label for="image">Выберите изображение:</label>
                 <input type="file" id="image" name="image" required>
             </div>
             <div class="form-group">
-                <button type="submit">Upload</button>
+                <label for="confidence">Порог уверенности:</label>
+                <input type="number" id="confidence" name="confidence" step="0.01" min="0" max="1" value="0.5" required>
+            </div>
+            <div class="form-group">
+                <button type="submit">Загрузить</button>
             </div>
         </form>
 
         <div class="result">
-            <h3>Processed Image:</h3>
-            <img id="resultImage" src="#" alt="Processed image will appear here" style="display:none;">
+            <h3>Обработанное изображение:</h3>
+            <img id="resultImage" src="#" alt="Обработанное изображение появится здесь" style="display:none;">
         </div>
     </div>
 
@@ -83,13 +88,15 @@
 
             const formData = new FormData();
             const fileField = document.querySelector('input[type="file"]');
+            const confidenceField = document.querySelector('input[name="confidence"]');
             formData.append('image', fileField.files[0]);
+            formData.append('confidence_threshold', confidenceField.value);
 
             const response = await fetch('/api/ml-model/', {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-CSRFToken': csrfToken  // Добавляем CSRF-токен в заголовок запроса
+                    'X-CSRFToken': csrfToken
                 }
             });
 
@@ -100,16 +107,14 @@
                 resultImage.src = processedImageUrl;
                 resultImage.style.display = 'block';
 
-                // Добавляем обработчик клика на изображение для открытия в полном размере
                 resultImage.addEventListener('click', function() {
                     window.open(processedImageUrl, '_blank');
                 });
             } else {
-                alert('Error uploading image');
+                alert('Ошибка при загрузке изображения');
             }
         });
 
-        // Функция для получения значения куки по имени
         function getCookie(name) {
             const cookieValue = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
             return cookieValue ? cookieValue.pop() : '';

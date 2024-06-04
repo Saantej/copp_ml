@@ -13,38 +13,53 @@ import io
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class MlModelAPIView(APIView):
     def post(self, request):
         file = request.FILES.get('image')
         if not file:
+            print("No image provided")
             return Response({"error": "No image provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        confidence_threshold = request.data.get('confidence_threshold', 0.5)
+        try:
+            confidence_threshold = float(confidence_threshold)
+        except ValueError:
+            return Response({"error": "Invalid confidence threshold"}, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_image = UploadedImage(image=file)
         uploaded_image.save()
 
-        # Загрузите и обработайте изображение
-        image_path = uploaded_image.image.path
+        image_path = uploaded_image.image.  path
         yolo_model_path = 'core/detect.pt'
         classification_model_path = 'core/class.pth'
-        processed_image = self.process_image(image_path, yolo_model_path, classification_model_path)
+        processed_image = self.process_image(image_path, yolo_model_path, classification_model_path,
+                                             confidence_threshold)
 
-        # Сохраните обработанное изображение
         processed_image_io = io.BytesIO()
         processed_image.save(processed_image_io, format='JPEG')
         uploaded_image.processed_image.save(f"processed_{uploaded_image.image.name}",
                                             ContentFile(processed_image_io.getvalue()), save=True)
 
+        print("Processed image saved")
+
         serializer = UploadedImageSerializer(uploaded_image)
+        print("Serializer data:", serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def process_image(self, image_path, yolo_model_path, classification_model_path):
-        # Ваша функция prediction
-        def prediction(image_path, yolo_model_path, classification_model_path, confidence_threshold=0.5,
+    def process_image(self, image_path, yolo_model_path, classification_model_path, confidence_threshold):
+
+        def prediction(image_path, yolo_model_path, classification_model_path, confidence_threshold,
                        colors=[(0, 255, 0), (255, 0, 0)], thickness=3, scale=1.0,
                        show_names=True, show_confidence=True, num_classes=2,
                        text_size=15, text_color=(255, 255, 255), show_probabilities=True):
+            print("Prediction function started")
+            print("Confidence threshold:", confidence_threshold)
+
             def load_classification_model(model_path, num_classes):
+                print("Processing image function started")
                 model = models.resnet18(pretrained=False)
                 num_ftrs = model.fc.in_features
                 model.fc = torch.nn.Linear(num_ftrs, num_classes)
@@ -71,6 +86,8 @@ class MlModelAPIView(APIView):
 
             # Предсказание на изображении
             results = model(image)
+            print("YOLO model inference completed")
+            print("Results:", results)
 
             # Загрузка классификационной модели
             device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -133,7 +150,8 @@ class MlModelAPIView(APIView):
 
             return image
 
-        return prediction(image_path, yolo_model_path, classification_model_path)
+        return prediction(image_path, yolo_model_path, classification_model_path, confidence_threshold)
+
 
 @csrf_exempt
 def upload_image_view(request):
